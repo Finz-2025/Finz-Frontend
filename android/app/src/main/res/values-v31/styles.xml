@@ -1,0 +1,14 @@
+<resources>
+    <!-- Android 12+ 전용 스플래시 테마 -->
+    <style name="BootTheme" parent="Theme.SplashScreen">
+        <!-- 시스템 스플래시 배경 -->
+        <item name="windowSplashScreenBackground">@color/bootsplash_background</item>
+
+        <!-- 시스템 스플래시에 표시할 아이콘(애니메이션 가능)
+             여기서도 우리가 만든 layer-list를 그대로 아이콘으로 사용 -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/bootsplash</item>
+
+        <!-- 시스템 스플래시 이후 곧바로 적용할 테마: 우리가 만든 레이어를 유지 -->
+        <item name="postSplashScreenTheme">@style/BootTheme.Post</item>
+    </style>
+</resources>
