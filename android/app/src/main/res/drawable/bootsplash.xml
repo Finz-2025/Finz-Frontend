@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 배경색 -->
+    <item android:drawable="@color/bootsplash_background"/>
+
+    <!-- 위쪽(가운데) 로고 : 상단에서 일정 거리만큼 띄우기 -->
+    <item android:top="@dimen/splash_logo_top_inset">
+        <bitmap
+            android:src="@drawable/bootsplash_logo"
+            android:gravity="top|center_horizontal"
+            android:antialias="true" />
+    </item>
+
+    <!-- 하단 마스코트 : 바닥에 고정 -->
+    <item android:bottom="@dimen/splash_mascot_bottom_inset">
+        <bitmap
+            android:src="@drawable/bootsplash_mascot"
+            android:gravity="bottom|center_horizontal"
+            android:antialias="true" />
+    </item>
+
+</layer-list>

@@ -1,9 +1,16 @@
 <resources>
-
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
-        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+    <!-- 앱 기본 테마 -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 앱 전역 스타일들… -->
     </style>
 
+    <!-- 스플래시 테마 (pre-Android 12 및 postSplash 화면용) -->
+    <style name="BootTheme.Post" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@drawable/bootsplash</item>
+    </style>
+
+    <!-- 기본 진입 테마: Android 11 이하에서 바로 bootsplash를 windowBackground로 사용 -->
+    <style name="BootTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@drawable/bootsplash</item>
+    </style>
 </resources>
