@@ -80,7 +80,7 @@ export default function HomeScreen() {
     return flat.filter(r => norm(r.date) === selectedKey);
   }, [selectedKey, state.dailyRecords]);
 
-  const showGuide = !selectedKey || records.length === 0;
+  const showGuide = !selectedKey;
 
   const overspent =
     !!state.month && state.month.totalSpent > state.month.totalBudget;

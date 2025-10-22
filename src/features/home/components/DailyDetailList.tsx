@@ -142,7 +142,15 @@ export default function DailyDetailList({
         style={s.list}
         showsVerticalScrollIndicator
         nestedScrollEnabled
-        contentContainerStyle={{ paddingBottom: moderateVerticalScale(8) }}
+        contentContainerStyle={[
+          { paddingBottom: moderateVerticalScale(8) },
+          items.length === 0 && { flex: 1, justifyContent: 'center' },
+        ]}
+        ListEmptyComponent={
+          <View style={s.emptyWrap}>
+            <Text style={s.emptyTitle}>아직 기록이 없어요!</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -235,5 +243,16 @@ const s = StyleSheet.create({
     fontFamily: FONT_FAMILY,
     fontSize: moderateScale(12),
     color: '#404855',
+  },
+
+  emptyWrap: {
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontFamily: FONT_FAMILY,
+    fontSize: moderateScale(14),
+    fontWeight: FONT_WEIGHT.light,
+    color: colors.darkText,
+    marginBottom: moderateVerticalScale(4),
   },
 });
