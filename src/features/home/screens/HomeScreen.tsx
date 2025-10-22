@@ -12,6 +12,7 @@ import MonthlySummary from '../components/MonthlySummary';
 import BottomTabBar, {
   useTabBarHeight,
 } from '@/features/commons/components/BottomTabBar';
+import EntrySheet from '../components/EntrySheet';
 
 export default function HomeScreen() {
   const [state] = useState<HomeState>(() => ({
@@ -80,8 +81,6 @@ export default function HomeScreen() {
     return flat.filter(r => norm(r.date) === selectedKey);
   }, [selectedKey, state.dailyRecords]);
 
-  const showGuide = !selectedKey;
-
   const overspent =
     !!state.month && state.month.totalSpent > state.month.totalBudget;
 
@@ -105,43 +104,54 @@ export default function HomeScreen() {
 
         {/* 지출/수입 입력 버튼 */}
         <InOutButtons
-          active={entryMode} // 기본 홈화면: 'none'
-          onPressExpense={() => {
-            setEntryMode('expense'); // 지출 입력 UI로 전환
-            // openExpenseSheet() 등 실제 화면 열기
-          }}
-          onPressIncome={() => {
-            setEntryMode('income'); // 수입 입력 UI로 전환
-            // openIncomeSheet() 등 실제 화면 열기
-          }}
+          active={entryMode}
+          onPressExpense={() =>
+            setEntryMode(m => (m === 'expense' ? 'none' : 'expense'))
+          }
+          onPressIncome={() =>
+            setEntryMode(m => (m === 'income' ? 'none' : 'income'))
+          }
         />
 
-        {/* 캘린더 */}
-        <CalendarPanel
-          ref={calRef}
-          monthKey={state.month?.monthKey ?? ''}
-          dailyStatus={state.dailyStatus}
-          selectedDate={selectedDate}
-          onSelectDate={handleSelectDate}
-          onShare={() => calRef.current?.share()}
-        />
-
-        {/* 하단: 내역 or 안내 */}
-        <View style={s.bottom}>
-          {showGuide ? (
-            <View style={s.guideWrap}>
-              <Text style={s.guideText}>
-                날짜를 선택하면 세부 내역을 볼 수 있어요
-              </Text>
-            </View>
-          ) : (
-            <DailyDetailList
-              key={selectedKey}
-              date={selectedKey!}
-              items={records}
+        {/* 캘린더 or 지출/수입 입력 뷰 */}
+        {entryMode === 'none' ? (
+          <CalendarPanel
+            ref={calRef}
+            monthKey={state.month?.monthKey ?? ''}
+            dailyStatus={state.dailyStatus}
+            selectedDate={selectedDate}
+            onSelectDate={handleSelectDate}
+            onShare={() => calRef.current?.share()}
+          />
+        ) : (
+          <View style={{ flex: 1 }}>
+            <EntrySheet
+              mode={entryMode} // 'expense' | 'income'
+              onClose={() => setEntryMode('none')}
+              selectedDate={selectedKey ?? undefined}
+              onSaved={() => setEntryMode('none')}
             />
-          )}
-        </View>
+          </View>
+        )}
+
+        {/* 하단: 내역 or 안내 -> 입력 시트 열려 있을 땐 숨김 */}
+        {entryMode === 'none' && (
+          <View style={s.bottom}>
+            {!selectedKey ? (
+              <View style={s.guideWrap}>
+                <Text style={s.guideText}>
+                  날짜를 선택하면 세부 내역을 볼 수 있어요
+                </Text>
+              </View>
+            ) : (
+              <DailyDetailList
+                key={selectedKey}
+                date={selectedKey!}
+                items={records}
+              />
+            )}
+          </View>
+        )}
       </View>
 
       {/* 고정 하단바 */}

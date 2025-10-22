@@ -7,6 +7,7 @@ export const colors = {
   white: '#FFFFFF',
   primary: '#9B5DE0',
   lightPrimary: '#F6EFFF',
+  mediumPrimary: '#B98FE7',
   primaryShadow: '#7E4AB8',
   red: '#E05D5D',
   keptBg: '#B8BDFF',
