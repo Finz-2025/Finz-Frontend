@@ -1,8 +1,16 @@
 export const colors = {
   black: '#000000',
+  darkText: '#2C3E50',
   gray: '#CCCCCC',
+  lightGray: '#F8F8F8',
   grayShadow: '#999999',
   white: '#FFFFFF',
   primary: '#9B5DE0',
+  lightPrimary: '#F6EFFF',
+  mediumPrimary: '#B98FE7',
   primaryShadow: '#7E4AB8',
+  red: '#E05D5D',
+  keptBg: '#B8BDFF',
+  overBg: '#FFB3DF',
+  noSpendBg: '#B5EEC0',
 };

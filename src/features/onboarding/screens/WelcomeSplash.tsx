@@ -8,7 +8,12 @@ const mascot = require('~assets/images/onboardingsplash_mascot.png');
 
 export default function WelcomeSplash({ navigation }: any) {
   useEffect(() => {
-    const t = setTimeout(() => navigation.replace('Main'), 1200);
+    const t = setTimeout(() => {
+      navigation.getParent()?.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    }, 1000);
     return () => clearTimeout(t);
   }, [navigation]);
 
@@ -17,8 +22,6 @@ export default function WelcomeSplash({ navigation }: any) {
       <View style={s.centerArea}>
         <Text style={s.welcomeText}>환영합니다! 🎉</Text>
       </View>
-
-      {/* 하단 마스코트 이미지 */}
       <Image source={mascot} style={s.mascot} />
     </View>
   );
@@ -33,11 +36,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  centerArea: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  centerArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   welcomeText: {
     fontFamily: FONT_FAMILY,
     fontWeight: FONT_WEIGHT.extraLight,
@@ -46,7 +45,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   mascot: {
-    width: width,
+    width,
     height: width * 0.58,
     alignSelf: 'flex-start',
   },
