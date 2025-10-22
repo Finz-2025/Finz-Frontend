@@ -1,32 +1,37 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { hasProfile } from '@/services/profile';
 import { useEffect, useState } from 'react';
 import OnboardingNavigator from '@/app/navigation/OnboardingNavigator';
 import MainNavigator from '@/app/navigation/MainNavigator';
+import { hasProfile } from '@/services/profile';
 
-const Stack = createNativeStackNavigator();
+type RootStackParamList = {
+  Onboarding: undefined;
+  Main: undefined;
+};
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function Gate({ navigation }: any) {
-  const [_ready, setReady] = useState(false);
+export default function RootNavigator() {
+  const [initialRoute, setInitialRoute] = useState<
+    'Onboarding' | 'Main' | null
+  >(null);
+
   useEffect(() => {
     (async () => {
       const exist = await hasProfile();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: exist ? 'Main' : 'Onboarding' }],
-      });
-      setReady(true);
+      setInitialRoute(exist ? 'Main' : 'Onboarding');
     })();
-  }, [navigation]);
-  return null;
-}
+  }, []);
 
-export default function RootNavigator() {
+  // 초기 라우트 결정 전에는 아무것도 렌더하지 않거나, Splash 유지
+  if (!initialRoute) return null;
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Gate" component={Gate} />
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName={initialRoute}
+      >
         <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         <Stack.Screen name="Main" component={MainNavigator} />
       </Stack.Navigator>
