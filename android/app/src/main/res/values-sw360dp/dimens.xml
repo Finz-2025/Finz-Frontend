@@ -1,4 +1,4 @@
 <resources>
-    <dimen name="splash_logo_top_inset">140dp</dimen>
+    <dimen name="splash_logo_top_inset">200dp</dimen>
     <dimen name="splash_mascot_bottom_inset">0dp</dimen>
 </resources>

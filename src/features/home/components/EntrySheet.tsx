@@ -4,7 +4,14 @@ import { FONT_FAMILY, FONT_WEIGHT } from '@/theme/typography';
 import DateTimePicker, {
   AndroidNativeProps,
 } from '@react-native-community/datetimepicker';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Animated,
   Easing,
@@ -21,11 +28,16 @@ import {
 
 type Mode = 'expense' | 'income';
 
+export type EntrySheetRef = {
+  isDirty: () => boolean;
+  tryClose: () => void;
+};
+
 interface Props {
   mode: Mode;
-  onClose(): void;
   selectedDate?: string;
   onSaved?(): void;
+  onRequestClose?(dirty: boolean): void;
 }
 
 // 아이콘 PNG
@@ -74,12 +86,10 @@ const toKey = (d: Date) =>
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 const formatComma = (s: string) => s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-export default function EntrySheet({
-  mode,
-  onClose,
-  selectedDate,
-  onSaved,
-}: Props) {
+const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
+  { mode, selectedDate, onSaved, onRequestClose },
+  ref,
+) {
   const slide = useRef(new Animated.Value(0)).current;
 
   // 날짜
@@ -176,6 +186,30 @@ export default function EntrySheet({
     (!ui.requireCategory || Boolean(category)) &&
     (!ui.requireMethod || Boolean(method));
 
+  // 현재 입력이 비어있지 않은지(= 수정됨) 판단
+  const isDirty = useMemo(() => {
+    const hasAmount = !!amountRaw && Number(amountRaw) > 0;
+    const hasCat = !!category;
+    const hasMethod = !!method;
+    const hasTags =
+      tags.length > 0 || customTags.length > 0 || removedTags.length > 0;
+    const hasMemo = memo.trim().length > 0;
+    const dateChanged = selectedDate ? selectedDate !== date : false;
+    return (
+      hasAmount || hasCat || hasMethod || hasTags || hasMemo || dateChanged
+    );
+  }, [
+    amountRaw,
+    category,
+    method,
+    tags,
+    customTags,
+    removedTags,
+    memo,
+    date,
+    selectedDate,
+  ]);
+
   // handlers
   const onPressDate = () => {
     setTempDate(new Date(date));
@@ -214,6 +248,15 @@ export default function EntrySheet({
     setTagModal(false);
   };
 
+  const handleRequestClose = () => {
+    if (onRequestClose) onRequestClose(isDirty);
+  };
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => isDirty,
+    tryClose: handleRequestClose,
+  }));
+
   const handleSubmit = () => {
     if (!isValid) return;
     onSaved?.();
@@ -229,7 +272,7 @@ export default function EntrySheet({
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.title}>{ui.title}</Text>
-        <Pressable hitSlop={12} onPress={onClose}>
+        <Pressable hitSlop={12} onPress={handleRequestClose}>
           <Text style={styles.closeTxt}>×</Text>
         </Pressable>
       </View>
@@ -529,7 +572,9 @@ export default function EntrySheet({
       )}
     </Animated.View>
   );
-}
+});
+
+export default EntrySheet;
 
 const R = (n: number) => moderateScale(n);
 

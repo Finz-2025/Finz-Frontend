@@ -1,6 +1,6 @@
 <resources>
     <!-- 로고를 상단에서 얼마나 내릴지 -->
-    <dimen name="splash_logo_top_inset">120dp</dimen>
+    <dimen name="splash_logo_top_inset">200dp</dimen>
 
     <!-- 마스코트는 거의 바닥에 붙임 (필요시 여백 조정) -->
     <dimen name="splash_mascot_bottom_inset">0dp</dimen>
