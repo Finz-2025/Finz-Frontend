@@ -19,7 +19,7 @@ export default function RootNavigator() {
   useEffect(() => {
     (async () => {
       const exist = await hasProfile();
-      setInitialRoute(exist ? 'Onboarding' : 'Onboarding');
+      setInitialRoute(exist ? 'Main' : 'Onboarding');
     })();
   }, []);
 

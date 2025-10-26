@@ -12,8 +12,10 @@ import MonthlySummary from '../components/MonthlySummary';
 import BottomTabBar, {
   useTabBarHeight,
 } from '@/features/commons/components/BottomTabBar';
-import EntrySheet from '../components/EntrySheet';
+import EntrySheet, { EntrySheetRef } from '../components/EntrySheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import CenterConfirmModal from '@/features/commons/components/modals/CenterConfirmModal';
+import CenterToast from '@/features/commons/components/modals/CenterToast';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -92,6 +94,54 @@ export default function HomeScreen() {
   // 하단바 높이만큼만 바닥 여백을 주어 겹치지 않게
   const TAB_H = useTabBarHeight();
 
+  const sheetRef = useRef<EntrySheetRef>(null);
+
+  const [exitAskOpen, setExitAskOpen] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [pendingMode, setPendingMode] = useState<'none' | 'expense' | 'income'>(
+    'none',
+  ); // 전환 예약
+
+  const requestCloseSheet = (
+    reason: 'close' | 'switch-to-expense' | 'switch-to-income',
+  ) => {
+    const dirty = sheetRef.current?.isDirty?.() ?? false;
+    if (dirty) {
+      // 모달을 띄우고 나중에 실제 행동은 onConfirm에서 처리
+      setExitAskOpen(true);
+      // 다음 행동을 기억
+      if (reason === 'close') setPendingMode('none');
+      if (reason === 'switch-to-expense') setPendingMode('expense');
+      if (reason === 'switch-to-income') setPendingMode('income');
+    } else {
+      // 바로 실행
+      if (reason === 'close') setEntryMode('none');
+      if (reason === 'switch-to-expense') setEntryMode('expense');
+      if (reason === 'switch-to-income') setEntryMode('income');
+    }
+  };
+
+  const handleOnSaved = () => {
+    // 저장 성공 → 토스트 → 시트 닫기
+    setToastOpen(true);
+    setTimeout(() => {
+      setToastOpen(false);
+      setEntryMode('none');
+    }, 1000);
+  };
+
+  // // InOutButtons 이벤트: 누르면 현재 시트 상태 확인 후 전환
+  // const onPressExpense = () => {
+  //   if (entryMode === 'expense') setEntryMode('none');
+  //   else if (entryMode === 'income') requestCloseSheet('switch-to-expense');
+  //   else setEntryMode('expense');
+  // };
+  // const onPressIncome = () => {
+  //   if (entryMode === 'income') setEntryMode('none');
+  //   else if (entryMode === 'expense') requestCloseSheet('switch-to-income');
+  //   else setEntryMode('income');
+  // };
+
   return (
     <View style={s.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
@@ -136,13 +186,30 @@ export default function HomeScreen() {
         ) : (
           <View style={{ flex: 1 }}>
             <EntrySheet
-              mode={entryMode} // 'expense' | 'income'
-              onClose={() => setEntryMode('none')}
+              ref={sheetRef}
+              mode={entryMode === 'expense' ? 'expense' : 'income'}
               selectedDate={selectedKey ?? undefined}
-              onSaved={() => setEntryMode('none')}
+              onSaved={handleOnSaved}
+              onRequestClose={() => requestCloseSheet('close')}
             />
           </View>
         )}
+
+        {/* 입력 중단 확인 모달 (공통) */}
+        <CenterConfirmModal
+          visible={exitAskOpen}
+          title="입력을 중단하시겠어요?"
+          cancelText="취소"
+          confirmText="중단하기"
+          onCancel={() => setExitAskOpen(false)}
+          onConfirm={() => {
+            setExitAskOpen(false);
+            setEntryMode(pendingMode);
+          }}
+        />
+
+        {/* 저장 확인 토스트 (공통) */}
+        <CenterToast visible={toastOpen} onHide={() => setToastOpen(false)} />
 
         {/* 하단: 내역 or 안내 -> 입력 시트 열려 있을 땐 숨김 */}
         {entryMode === 'none' && (
