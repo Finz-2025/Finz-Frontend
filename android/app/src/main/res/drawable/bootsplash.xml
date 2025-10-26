@@ -9,7 +9,8 @@
         <bitmap
             android:src="@drawable/bootsplash_logo"
             android:gravity="top|center_horizontal"
-            android:antialias="true" />
+            android:antialias="true"
+            android:width="240dp"/>
     </item>
 
     <!-- 하단 마스코트 : 바닥에 고정 -->
@@ -17,7 +18,8 @@
         <bitmap
             android:src="@drawable/bootsplash_mascot"
             android:gravity="bottom|center_horizontal"
-            android:antialias="true" />
+            android:antialias="true"
+            android:width="360dp" />
     </item>
 
 </layer-list>
