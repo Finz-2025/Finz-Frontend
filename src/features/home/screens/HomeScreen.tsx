@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { HomeState } from '../model/types';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/theme/colors';
 import { moderateScale, moderateVerticalScale } from '@/theme/scale';
 import { FONT_FAMILY, FONT_WEIGHT } from '@/theme/typography';
@@ -13,8 +13,13 @@ import BottomTabBar, {
   useTabBarHeight,
 } from '@/features/commons/components/BottomTabBar';
 import EntrySheet from '../components/EntrySheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  // iOS는 노치/상단바 만큼 패딩, Android는 0 (중복 방지)
+  const TOP_PADDING = Platform.OS === 'ios' ? insets.top : 0;
+
   const [state] = useState<HomeState>(() => ({
     month: { monthKey: '2025-10', totalBudget: 400000, totalSpent: 152000 },
     dailyRecords: {
@@ -89,10 +94,15 @@ export default function HomeScreen() {
 
   return (
     <View style={s.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+
       <View
         style={[
           s.content,
-          { paddingBottom: TAB_H + moderateVerticalScale(12) },
+          {
+            paddingTop: TOP_PADDING + moderateVerticalScale(8), // ⬅ iOS만 인셋 반영
+            paddingBottom: TAB_H + moderateVerticalScale(12),
+          },
         ]}
       >
         {/* 상단 요약 */}
@@ -169,7 +179,6 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   content: {
     flex: 1,
-    marginTop: moderateVerticalScale(20),
   },
   bottom: {
     marginHorizontal: moderateScale(20),
