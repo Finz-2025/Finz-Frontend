@@ -92,12 +92,19 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
 ) {
   const slide = useRef(new Animated.Value(0)).current;
 
+  // 제목
+  const [title, setTitle] = useState('');
+
   // 날짜
+  const parseKey = (key: string) => {
+    const [y, m, d] = key.split('-').map(n => parseInt(n, 10));
+    return new Date(y, m - 1, d); // 로컬 기준으로 안전
+  };
   const [date, setDate] = useState<string>(
     () => selectedDate ?? toKey(new Date()),
   );
   const [showPicker, setShowPicker] = useState(false);
-  const [tempDate, setTempDate] = useState<Date>(new Date(date));
+  const [tempDate, setTempDate] = useState<Date>(parseKey(date));
 
   // 금액
   const [amountRaw, setAmountRaw] = useState<string>('');
@@ -146,7 +153,7 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
   useEffect(() => {
     if (selectedDate) {
       setDate(selectedDate);
-      setTempDate(new Date(selectedDate));
+      setTempDate(parseKey(selectedDate));
     }
   }, [selectedDate]);
 
@@ -189,6 +196,7 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
   // 현재 입력이 비어있지 않은지(= 수정됨) 판단
   const isDirty = useMemo(() => {
     const hasAmount = !!amountRaw && Number(amountRaw) > 0;
+    const hasTitle = title.trim().length > 0;
     const hasCat = !!category;
     const hasMethod = !!method;
     const hasTags =
@@ -196,10 +204,17 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
     const hasMemo = memo.trim().length > 0;
     const dateChanged = selectedDate ? selectedDate !== date : false;
     return (
-      hasAmount || hasCat || hasMethod || hasTags || hasMemo || dateChanged
+      hasAmount ||
+      hasTitle ||
+      hasCat ||
+      hasMethod ||
+      hasTags ||
+      hasMemo ||
+      dateChanged
     );
   }, [
     amountRaw,
+    title,
     category,
     method,
     tags,
@@ -212,13 +227,24 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
 
   // handlers
   const onPressDate = () => {
-    setTempDate(new Date(date));
-    setShowPicker(v => !v);
+    setTempDate(parseKey(date));
+    setShowPicker(true);
   };
-  const onChangeDate: AndroidNativeProps['onChange'] = (_e, d) => {
-    if (d) setTempDate(d);
+  const onChangeDate: AndroidNativeProps['onChange'] = (event, selected) => {
     if (Platform.OS === 'android') {
+      // 시스템 모달 사용: 여기서 닫기 제어
+      if (event?.type === 'set' && selected) {
+        // 확인 눌렀을 때
+        setTempDate(selected);
+        setDate(toKey(selected));
+      }
+      // 'set'이든 'dismissed'든 모달은 닫는다
+      setShowPicker(false);
+      return;
     }
+
+    // iOS 인라인: 선택만 임시 반영, 확정은 커스텀 버튼에서
+    if (selected) setTempDate(selected);
   };
   const onConfirmDate = () => {
     setDate(toKey(tempDate));
@@ -277,8 +303,7 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
         </Pressable>
       </View>
 
-      {/* 날짜 피커 (날짜박스 바로 아래, 컴팩트, 확인/취소) */}
-      {/* iOS는 locale 지원, Android는 시스템 언어를 따름 */}
+      {/* 날짜 피커 */}
       {showPicker && (
         <View style={styles.pickerContainer}>
           <View style={styles.pickerInner}>
@@ -297,19 +322,23 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
               }
             />
           </View>
-          <View style={styles.pickerActions}>
-            <Pressable onPress={onCancelDate} style={styles.pickerBtn}>
-              <Text style={styles.pickerBtnTxt}>취소</Text>
-            </Pressable>
-            <Pressable
-              onPress={onConfirmDate}
-              style={[styles.pickerBtn, styles.pickerBtnPrimary]}
-            >
-              <Text style={[styles.pickerBtnTxt, { color: colors.white }]}>
-                확인
-              </Text>
-            </Pressable>
-          </View>
+
+          {/* iOS 인라인일 때만 커스텀 버튼 */}
+          {Platform.OS === 'ios' && (
+            <View style={styles.pickerActions}>
+              <Pressable onPress={onCancelDate} style={styles.pickerBtn}>
+                <Text style={styles.pickerBtnTxt}>취소</Text>
+              </Pressable>
+              <Pressable
+                onPress={onConfirmDate}
+                style={[styles.pickerBtn, styles.pickerBtnPrimary]}
+              >
+                <Text style={[styles.pickerBtnTxt, { color: colors.white }]}>
+                  확인
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
 
@@ -346,6 +375,23 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
               />
               <Text style={styles.unit}>원</Text>
             </View>
+          </View>
+        </View>
+
+        {/* 제목 입력 */}
+        <View style={styles.titleGroup}>
+          <Text style={styles.inputLabel}>제목</Text>
+          <View style={styles.amountBox}>
+            <TextInput
+              placeholder="제목 입력"
+              value={title}
+              onChangeText={setTitle}
+              style={styles.amountInput}
+              placeholderTextColor={colors.grayShadow}
+              returnKeyType="done"
+              maxLength={40}
+              autoCapitalize="none"
+            />
           </View>
         </View>
 
@@ -630,7 +676,12 @@ const styles = StyleSheet.create({
   pickerBtnPrimary: { backgroundColor: colors.primary },
   pickerBtnTxt: { color: colors.primary, fontWeight: FONT_WEIGHT.bold },
 
-  rowGap: { gap: moderateVerticalScale(11) },
+  rowGap: { gap: moderateVerticalScale(12) },
+
+  // 제목 섹션
+  titleGroup: {
+    marginTop: moderateVerticalScale(12),
+  },
 
   // 날짜
   dateBox: {
