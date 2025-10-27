@@ -15,8 +15,14 @@ import BottomTabBar, {
 import EntrySheet, { EntrySheetRef } from '../components/EntrySheet';
 import CenterConfirmModal from '@/features/commons/components/modals/CenterConfirmModal';
 import CenterToast from '@/features/commons/components/modals/CenterToast';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MainStackParamList } from '@/app/navigation/MainNavigator';
 
 export default function HomeScreen() {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+
   const [state] = useState<HomeState>(() => ({
     month: { monthKey: '2025-10', totalBudget: 400000, totalSpent: 152000 },
     dailyRecords: {
@@ -232,8 +238,8 @@ export default function HomeScreen() {
       {/* 고정 하단바 */}
       <BottomTabBar
         active="home"
-        onPressCoach={() => {}}
-        onPressHome={() => {}}
+        onPressCoach={() => navigation.navigate('Coach')}
+        onPressHome={() => navigation.navigate('Home')}
         onPressGoals={() => {}}
       />
     </View>
