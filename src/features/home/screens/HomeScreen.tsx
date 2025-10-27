@@ -13,15 +13,10 @@ import BottomTabBar, {
   useTabBarHeight,
 } from '@/features/commons/components/BottomTabBar';
 import EntrySheet, { EntrySheetRef } from '../components/EntrySheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CenterConfirmModal from '@/features/commons/components/modals/CenterConfirmModal';
 import CenterToast from '@/features/commons/components/modals/CenterToast';
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
-  // iOS는 노치/상단바 만큼 패딩, Android는 0 (중복 방지)
-  const TOP_PADDING = Platform.OS === 'ios' ? insets.top : 0;
-
   const [state] = useState<HomeState>(() => ({
     month: { monthKey: '2025-10', totalBudget: 400000, totalSpent: 152000 },
     dailyRecords: {
@@ -150,7 +145,10 @@ export default function HomeScreen() {
         style={[
           s.content,
           {
-            paddingTop: TOP_PADDING + moderateVerticalScale(8), // ⬅ iOS만 인셋 반영
+            paddingTop:
+              Platform.OS === 'ios'
+                ? moderateVerticalScale(18)
+                : moderateVerticalScale(8),
             paddingBottom: TAB_H + moderateVerticalScale(12),
           },
         ]}
