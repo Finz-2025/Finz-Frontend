@@ -32,7 +32,7 @@ export interface BaseRecord {
 export interface ExpenseRecord extends BaseRecord {
   type: 'expense';
   category: ExpenseCategory;
-  method: PaymentMethod;
+  method?: PaymentMethod;
 }
 
 export interface IncomeRecord extends BaseRecord {

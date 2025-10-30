@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeState } from '../model/types';
 import {
   ActivityIndicator,
@@ -31,6 +31,7 @@ import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
 import { createExpense } from '@/features/home/api/expense';
 import { fetchCalendarStatus } from '../api/calendar';
+import { fetchDailyDetails } from '../api/details';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
@@ -80,6 +81,7 @@ export default function HomeScreen() {
     },
     dailyStatus: {},
   }));
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [calLoading, setCalLoading] = useState(false);
   const currentYMRef = useRef<{ year: number; month: number } | null>(null);
 
@@ -125,6 +127,46 @@ export default function HomeScreen() {
   const norm = (d?: string | null) => (d ? d.trim().slice(0, 10) : null);
   const selectedKey = norm(selectedDate);
 
+  const hasData = useMemo(() => {
+    if (!selectedKey) return false;
+    return !!state.dailyRecords[selectedKey]?.length;
+  }, [selectedKey, state.dailyRecords]);
+
+  // 날짜 선택 시 상세 내역 없으면 조회
+  useEffect(() => {
+    if (!selectedKey || hasData) return; // 데이터 있으면 호출 안 함
+    let cancelled = false;
+    (async () => {
+      try {
+        setDetailsLoading(true);
+        const items = await fetchDailyDetails({ date: selectedKey });
+        if (cancelled) return;
+        setState(prev => ({
+          ...prev,
+          dailyRecords: {
+            ...prev.dailyRecords,
+            [selectedKey]: items,
+          },
+        }));
+      } catch (e) {
+        console.warn('일일 세부 내역 조회 실패:', e);
+        // 실패 시 빈 배열로라도 표시는 가능
+        setState(prev => ({
+          ...prev,
+          dailyRecords: {
+            ...prev.dailyRecords,
+            [selectedKey]: prev.dailyRecords[selectedKey] ?? [],
+          },
+        }));
+      } finally {
+        setDetailsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedKey, hasData]);
+
   const records = useMemo(() => {
     if (!selectedKey) return [];
     const byKey = state.dailyRecords[selectedKey];
@@ -168,16 +210,17 @@ export default function HomeScreen() {
   // SavedEntry -> 서버 요청 바디로 매핑
   const mapSavedEntryToExpenseRequest = (entry: SavedEntry) => {
     const stripHash = (t?: string) => (t ? t.replace(/^#/, '') : '');
-    return {
+    const base = {
       user_id: 1,
       expense_name: entry.title || '지출',
       amount: entry.amount,
       category: entry.category ?? '기타',
       expense_tag: stripHash(entry.tags?.[0]),
       memo: entry.memo ?? '',
-      payment_method: entry.method ?? '카드',
       expense_date: entry.date,
     } as const;
+    // 결제수단이 있으면만 추가 (없으면 필드 생략)
+    return entry.method ? { ...base, payment_method: entry.method } : base;
   };
 
   // 기존 handleOnSaved 교체
@@ -290,11 +333,23 @@ export default function HomeScreen() {
             {!selectedKey ? (
               <WeeklyHighlights />
             ) : (
-              <DailyDetailList
-                key={selectedKey}
-                date={selectedKey!}
-                items={records}
-              />
+              <>
+                {detailsLoading && (
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      marginBottom: moderateVerticalScale(6),
+                    }}
+                  >
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                )}
+                <DailyDetailList
+                  key={selectedKey}
+                  date={selectedKey!}
+                  items={records}
+                />
+              </>
             )}
           </View>
         )}
