@@ -50,7 +50,12 @@ export default function CoachScreen() {
     isActionsOpen,
     toggleActions,
     addMessage,
+    loadInitial,
   } = useCoachStore();
+
+  useEffect(() => {
+    loadInitial(1); // /api/coach/history/1
+  }, [loadInitial]);
 
   // (데모) 코치 자동 응답 생성
   const makeCoachReply = (raw?: any) => {

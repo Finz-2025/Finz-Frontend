@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { ExpenseRequest, ExpenseResponse } from '@/types/api';
+import type { ExpenseRequest, ExpenseResponse } from '@/features/home/api/api';
 
 // 지출 입력 API
 export async function createExpense(

@@ -22,7 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
-import { createExpense } from '@/services/expense';
+import { createExpense } from '@/features/home/api/expense';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');

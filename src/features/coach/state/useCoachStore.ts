@@ -6,6 +6,8 @@ import type {
   ChatMessage,
 } from '../model/types';
 import { MOCK_ITEMS } from '../model/mockChats';
+import { splitUtcIsoToLocal } from '../utils/datetime';
+import { getCoachHistory } from '../api/coach';
 
 const makeDateHeader = (date: string): ChatItem => ({
   type: 'date',
@@ -52,6 +54,10 @@ type State = {
   hitIndex: number; // 현재 선택된 검색 결과 인덱스
   calendarHits: CalendarHitMap;
   isActionsOpen: boolean;
+
+  // 로딩 상태
+  isLoading: boolean;
+  error?: string;
 };
 
 type Actions = {
@@ -69,6 +75,9 @@ type Actions = {
     date: string,
     time: string,
   ): void;
+
+  // 서버에서 초기 대화 불러오기
+  loadInitial(userId: number | string): Promise<void>;
 };
 
 export const useCoachStore = create<State & Actions>((set, get) => ({
@@ -78,6 +87,9 @@ export const useCoachStore = create<State & Actions>((set, get) => ({
   hitIndex: 0,
   calendarHits: {},
   isActionsOpen: true,
+
+  isLoading: false,
+  error: undefined,
 
   setQuery: q => set({ query: q }),
   setHits: (h, map) =>
@@ -108,4 +120,40 @@ export const useCoachStore = create<State & Actions>((set, get) => ({
       ];
       return { items: normalizeAsc(next) };
     }),
+
+  // 대화 내역 불러오기
+  loadInitial: async userId => {
+    set({ isLoading: true, error: undefined });
+    try {
+      const list = await getCoachHistory(userId);
+
+      // createdAt 기준 오름차순(오래된→최신)
+      const sorted = [...list].sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
+
+      // DTO → ChatItem 매핑
+      const mapped: ChatItem[] = [];
+      for (const m of sorted) {
+        const { date, time } = splitUtcIsoToLocal(m.createdAt);
+
+        // 서버 sender → 앱 sender 매핑
+        const sender = m.sender === 'USER' ? 'user' : 'coach';
+
+        mapped.push(makeDateHeader(date));
+        mapped.push(makeMsg({ sender, text: m.content, date, time }));
+      }
+
+      set({
+        items: normalizeAsc(mapped),
+        isLoading: false,
+      });
+    } catch (e: any) {
+      set({
+        isLoading: false,
+        error: e?.message ?? '대화 로드 실패',
+      });
+    }
+  },
 }));
