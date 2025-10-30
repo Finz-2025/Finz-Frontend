@@ -11,6 +11,8 @@ export const colors = {
   primaryShadow: '#7E4AB8',
   red: '#E05D5D',
   keptBg: '#B8BDFF',
+  keptDark: '#9299FF',
   overBg: '#FFB3DF',
+  overDark: '#FF74C5',
   noSpendBg: '#B5EEC0',
 };
