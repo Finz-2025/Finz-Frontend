@@ -1,6 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { HomeState } from '../model/types';
-import { Platform, StatusBar, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { colors } from '@/theme/colors';
 import { moderateScale, moderateVerticalScale } from '@/theme/scale';
 import { FONT_FAMILY, FONT_WEIGHT } from '@/theme/typography';
@@ -22,7 +29,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
-import { createExpense } from '@/services/expense';
+import { createExpense } from '@/features/home/api/expense';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
@@ -30,6 +37,9 @@ const thumbsDown = require('~assets/icons/progress_bad.png');
 export default function HomeScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+
+  // 지출 등록 로딩 상태
+  const [isSaving, setIsSaving] = useState(false);
 
   const [state] = useState<HomeState>(() => ({
     month: { monthKey: '2025-10', totalBudget: 400000, totalSpent: 152000 },
@@ -127,37 +137,15 @@ export default function HomeScreen() {
     }
   };
 
-  const nowHM = () => {
-    const d = new Date();
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  };
-  const krw = (n: number) => n.toLocaleString('ko-KR');
-
-  const methodLabel = (m?: '카드' | '현금' | '계좌이체' | null) => m ?? '';
-  const categoryLabel = (c?: string | null) => c ?? '';
-
-  const formatUserExpenseLine = (e: {
-    title: string;
-    amount: number;
-    method?: any;
-    category?: any;
-  }) => {
-    const parts = [e.title, `${krw(e.amount)}원`];
-    if (methodLabel(e.method)) parts.push(methodLabel(e.method));
-    if (categoryLabel(e.category)) parts.push(categoryLabel(e.category));
-    return parts.join(' ');
-  };
-
   // SavedEntry -> 서버 요청 바디로 매핑
   const mapSavedEntryToExpenseRequest = (entry: SavedEntry) => {
+    const stripHash = (t?: string) => (t ? t.replace(/^#/, '') : '');
     return {
       user_id: 1,
       expense_name: entry.title || '지출',
       amount: entry.amount,
       category: entry.category ?? '기타',
-      expense_tag: entry.tags?.[0] ?? '',
+      expense_tag: stripHash(entry.tags?.[0]),
       memo: entry.memo ?? '',
       payment_method: entry.method ?? '카드',
       expense_date: entry.date,
@@ -167,32 +155,27 @@ export default function HomeScreen() {
   // 기존 handleOnSaved 교체
   const handleOnSaved = async (entry: SavedEntry) => {
     try {
-      // 1) 서버 전송
+      setIsSaving(true);
       const req = mapSavedEntryToExpenseRequest(entry);
       const res = await createExpense(req);
 
       if (!res.success) {
         console.warn('지출 등록 실패:', res.message);
         setToastOpen(true);
+        setIsSaving(false);
         return;
       }
 
-      // 3) 알림 & 시트 닫기
       setToastOpen(true);
       setEntryMode('none');
 
-      // 4) 자동 메시지로 Coach 이동
-      const autoPost = {
-        text: formatUserExpenseLine(entry),
-        date: entry.date,
-        time: nowHM(),
-        raw: entry,
-      };
-      navigation.navigate('Coach', { autoPost });
+      // 코치탭 이동
+      setIsSaving(false);
+      navigation.navigate('Coach');
     } catch (e: any) {
       console.error('지출 등록 에러:', e?.message || e);
-      // 실패 UX
       setToastOpen(true);
+      setIsSaving(false);
     }
   };
 
@@ -288,6 +271,14 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* 지출 등록 로딩 오버레이 */}
+      {isSaving && (
+        <View style={s.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={s.loadingText}>지출을 등록하고 있어요…</Text>
+        </View>
+      )}
+
       {/* 고정 하단바 */}
       <BottomTabBar
         active="home"
@@ -321,5 +312,21 @@ const s = StyleSheet.create({
     fontSize: moderateScale(16),
     fontWeight: FONT_WEIGHT.medium,
     letterSpacing: 0.5,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: moderateScale(16),
+    zIndex: 10,
+  },
+  loadingText: {
+    marginTop: moderateVerticalScale(8),
+    color: colors.primary,
+    fontFamily: FONT_FAMILY,
+    fontSize: moderateScale(12),
+    fontWeight: FONT_WEIGHT.semibold,
+    textAlign: 'center',
   },
 });
