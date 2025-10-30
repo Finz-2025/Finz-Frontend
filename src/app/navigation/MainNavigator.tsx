@@ -5,7 +5,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 export type MainStackParamList = {
   Home: undefined;
-  Coach: undefined;
+  Coach:
+    | { autoPost?: { text: string; date: string; time: string; raw?: any } }
+    | undefined;
   Goals: undefined;
 };
 

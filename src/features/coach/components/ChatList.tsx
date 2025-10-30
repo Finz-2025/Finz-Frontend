@@ -34,6 +34,13 @@ export default function ChatList({
       });
   }, [hits, currentHit]);
 
+  useEffect(() => {
+    // 데이터 바뀌면 자동으로 아래로
+    requestAnimationFrame(() =>
+      listRef.current?.scrollToEnd({ animated: true }),
+    );
+  }, [items]);
+
   return (
     <FlatList
       ref={listRef}
