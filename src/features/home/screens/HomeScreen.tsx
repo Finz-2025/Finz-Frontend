@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { HomeState } from '../model/types';
-import { Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { colors } from '@/theme/colors';
 import { moderateScale, moderateVerticalScale } from '@/theme/scale';
 import { FONT_FAMILY, FONT_WEIGHT } from '@/theme/typography';
@@ -18,6 +18,10 @@ import CenterToast from '@/features/commons/components/modals/CenterToast';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
+import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
+
+const thumbsUp = require('~assets/icons/progress_good.png');
+const thumbsDown = require('~assets/icons/progress_bad.png');
 
 export default function HomeScreen() {
   const navigation =
@@ -89,9 +93,6 @@ export default function HomeScreen() {
     return flat.filter(r => norm(r.date) === selectedKey);
   }, [selectedKey, state.dailyRecords]);
 
-  const overspent =
-    !!state.month && state.month.totalSpent > state.month.totalBudget;
-
   // 하단바 높이만큼만 바닥 여백을 주어 겹치지 않게
   const TAB_H = useTabBarHeight();
 
@@ -131,18 +132,6 @@ export default function HomeScreen() {
     }, 1000);
   };
 
-  // // InOutButtons 이벤트: 누르면 현재 시트 상태 확인 후 전환
-  // const onPressExpense = () => {
-  //   if (entryMode === 'expense') setEntryMode('none');
-  //   else if (entryMode === 'income') requestCloseSheet('switch-to-expense');
-  //   else setEntryMode('expense');
-  // };
-  // const onPressIncome = () => {
-  //   if (entryMode === 'income') setEntryMode('none');
-  //   else if (entryMode === 'expense') requestCloseSheet('switch-to-income');
-  //   else setEntryMode('income');
-  // };
-
   return (
     <View style={s.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
@@ -155,13 +144,17 @@ export default function HomeScreen() {
               Platform.OS === 'ios'
                 ? moderateVerticalScale(18)
                 : moderateVerticalScale(8),
-            paddingBottom: TAB_H + moderateVerticalScale(12),
+            paddingBottom: TAB_H,
           },
         ]}
       >
         {/* 상단 요약 */}
         {state.month ? (
-          <MonthlySummary month={state.month} overspent={overspent} />
+          <MonthlySummary
+            month={state.month}
+            keptIcon={thumbsUp}
+            overIcon={thumbsDown}
+          />
         ) : (
           <MonthlySummaryEmpty />
         )}
@@ -219,11 +212,7 @@ export default function HomeScreen() {
         {entryMode === 'none' && (
           <View style={s.bottom}>
             {!selectedKey ? (
-              <View style={s.guideWrap}>
-                <Text style={s.guideText}>
-                  날짜를 선택하면 세부 내역을 볼 수 있어요
-                </Text>
-              </View>
+              <WeeklyHighlights />
             ) : (
               <DailyDetailList
                 key={selectedKey}
@@ -240,7 +229,7 @@ export default function HomeScreen() {
         active="home"
         onPressCoach={() => navigation.navigate('Coach')}
         onPressHome={() => navigation.navigate('Home')}
-        onPressGoals={() => {}}
+        onPressGoals={() => navigation.navigate('Goals')}
       />
     </View>
   );
