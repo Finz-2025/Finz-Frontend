@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { HomeState } from '../model/types';
-import { Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { colors } from '@/theme/colors';
 import { moderateScale, moderateVerticalScale } from '@/theme/scale';
 import { FONT_FAMILY, FONT_WEIGHT } from '@/theme/typography';
@@ -18,6 +18,7 @@ import CenterToast from '@/features/commons/components/modals/CenterToast';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
+import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
@@ -211,11 +212,7 @@ export default function HomeScreen() {
         {entryMode === 'none' && (
           <View style={s.bottom}>
             {!selectedKey ? (
-              <View style={s.guideWrap}>
-                <Text style={s.guideText}>
-                  날짜를 선택하면 세부 내역을 볼 수 있어요
-                </Text>
-              </View>
+              <WeeklyHighlights />
             ) : (
               <DailyDetailList
                 key={selectedKey}
