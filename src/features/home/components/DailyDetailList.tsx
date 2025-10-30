@@ -64,6 +64,7 @@ const LeftIcon = memo(({ item }: { item: DailyRecord }) => {
 const MethodIcon = memo(({ item }: { item: DailyRecord }) => {
   if (item.type !== 'expense') return null;
   const e = item as ExpenseRecord;
+  if (!e.method) return null; // ← 결제수단이 없으면 아이콘 숨김
   return <Image source={methodIcons[e.method]} style={s.methodIcon} />;
 });
 

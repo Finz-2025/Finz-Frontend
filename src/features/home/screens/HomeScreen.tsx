@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeState } from '../model/types';
 import {
   ActivityIndicator,
@@ -30,6 +30,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
 import { createExpense } from '@/features/home/api/expense';
+import { fetchCalendarStatus } from '../api/calendar';
+import { fetchDailyDetails } from '../api/details';
+import { fetchWeeklyHighlight, WeeklyHighlightRow } from '../api/highlight';
+import { fetchMonthlySummary } from '../api/summary';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
@@ -41,7 +45,7 @@ export default function HomeScreen() {
   // 지출 등록 로딩 상태
   const [isSaving, setIsSaving] = useState(false);
 
-  const [state] = useState<HomeState>(() => ({
+  const [state, setState] = useState<HomeState>(() => ({
     month: { monthKey: '2025-10', totalBudget: 400000, totalSpent: 152000 },
     dailyRecords: {
       '2025-10-04': [
@@ -77,12 +81,40 @@ export default function HomeScreen() {
         },
       ],
     },
-    dailyStatus: {
-      '2025-10-01': 'kept',
-      '2025-10-02': 'over',
-      '2025-10-03': 'noSpend',
-    },
+    dailyStatus: {},
   }));
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [calLoading, setCalLoading] = useState(false);
+  const currentYMRef = useRef<{ year: number; month: number } | null>(null);
+
+  const loadCalendar = useCallback(async (year: number, month: number) => {
+    try {
+      setCalLoading(true);
+      const map = await fetchCalendarStatus({ year, month });
+      setState(prev => ({
+        ...prev,
+        dailyStatus: map,
+      }));
+    } catch (e) {
+      console.warn('캘린더 상태 조회 실패:', e);
+      // 실패 시 이전 상태 유지
+    } finally {
+      setCalLoading(false);
+    }
+  }, []);
+
+  // CalendarPanel에서 전달해주는 월 변경 콜백
+  const handleMonthChange = useCallback(
+    (year: number, month: number) => {
+      const last = currentYMRef.current;
+      // 같은 달 중복 호출 방지
+      if (!last || last.year !== year || last.month !== month) {
+        currentYMRef.current = { year, month };
+        loadCalendar(year, month);
+      }
+    },
+    [loadCalendar],
+  );
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [entryMode, setEntryMode] = useState<'none' | 'expense' | 'income'>(
@@ -97,6 +129,46 @@ export default function HomeScreen() {
   const norm = (d?: string | null) => (d ? d.trim().slice(0, 10) : null);
   const selectedKey = norm(selectedDate);
 
+  const hasData = useMemo(() => {
+    if (!selectedKey) return false;
+    return !!state.dailyRecords[selectedKey]?.length;
+  }, [selectedKey, state.dailyRecords]);
+
+  // 날짜 선택 시 상세 내역 없으면 조회
+  useEffect(() => {
+    if (!selectedKey || hasData) return; // 데이터 있으면 호출 안 함
+    let cancelled = false;
+    (async () => {
+      try {
+        setDetailsLoading(true);
+        const items = await fetchDailyDetails({ date: selectedKey });
+        if (cancelled) return;
+        setState(prev => ({
+          ...prev,
+          dailyRecords: {
+            ...prev.dailyRecords,
+            [selectedKey]: items,
+          },
+        }));
+      } catch (e) {
+        console.warn('일일 세부 내역 조회 실패:', e);
+        // 실패 시 빈 배열로라도 표시는 가능
+        setState(prev => ({
+          ...prev,
+          dailyRecords: {
+            ...prev.dailyRecords,
+            [selectedKey]: prev.dailyRecords[selectedKey] ?? [],
+          },
+        }));
+      } finally {
+        setDetailsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedKey, hasData]);
+
   const records = useMemo(() => {
     if (!selectedKey) return [];
     const byKey = state.dailyRecords[selectedKey];
@@ -106,6 +178,64 @@ export default function HomeScreen() {
     const flat = Object.values(state.dailyRecords).flat();
     return flat.filter(r => norm(r.date) === selectedKey);
   }, [selectedKey, state.dailyRecords]);
+
+  const [hlLoading, setHlLoading] = useState(false);
+  const [hlRows, setHlRows] = useState<WeeklyHighlightRow[] | null>(null);
+
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // 하이라이트: 첫 마운트 시 1회 조회
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setHlLoading(true);
+        const rows = await fetchWeeklyHighlight({ userId: 1 });
+        if (!cancelled) setHlRows(rows);
+      } catch {
+        // 실패 시 데모 유지(아무 것도 안 함)
+      } finally {
+        setHlLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 요약: 첫 마운트 시 1회 조회
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setSummaryLoading(true);
+        const { totalExpense, remainingBudget } = await fetchMonthlySummary({
+          userId: 1,
+        });
+        if (cancelled) return;
+        const now = new Date();
+        const monthKey = `${now.getFullYear()}-${String(
+          now.getMonth() + 1,
+        ).padStart(2, '0')}`;
+        const totalBudget = totalExpense + remainingBudget;
+        setState(prev => ({
+          ...prev,
+          month: {
+            monthKey,
+            totalBudget,
+            totalSpent: totalExpense,
+          },
+        }));
+      } catch {
+        // 실패 시 기존 데모 month 유지
+      } finally {
+        setSummaryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 하단바 높이만큼만 바닥 여백을 주어 겹치지 않게
   const TAB_H = useTabBarHeight();
@@ -140,16 +270,17 @@ export default function HomeScreen() {
   // SavedEntry -> 서버 요청 바디로 매핑
   const mapSavedEntryToExpenseRequest = (entry: SavedEntry) => {
     const stripHash = (t?: string) => (t ? t.replace(/^#/, '') : '');
-    return {
+    const base = {
       user_id: 1,
       expense_name: entry.title || '지출',
       amount: entry.amount,
       category: entry.category ?? '기타',
       expense_tag: stripHash(entry.tags?.[0]),
       memo: entry.memo ?? '',
-      payment_method: entry.method ?? '카드',
       expense_date: entry.date,
     } as const;
+    // 결제수단이 있으면만 추가 (없으면 필드 생략)
+    return entry.method ? { ...base, payment_method: entry.method } : base;
   };
 
   // 기존 handleOnSaved 교체
@@ -197,11 +328,23 @@ export default function HomeScreen() {
       >
         {/* 상단 요약 */}
         {state.month ? (
-          <MonthlySummary
-            month={state.month}
-            keptIcon={thumbsUp}
-            overIcon={thumbsDown}
-          />
+          <>
+            {summaryLoading && (
+              <View
+                style={{
+                  alignItems: 'center',
+                  marginTop: moderateVerticalScale(6),
+                }}
+              >
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            )}
+            <MonthlySummary
+              month={state.month}
+              keptIcon={thumbsUp}
+              overIcon={thumbsDown}
+            />
+          </>
         ) : (
           <MonthlySummaryEmpty />
         )}
@@ -225,6 +368,7 @@ export default function HomeScreen() {
             dailyStatus={state.dailyStatus}
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
+            onMonthChange={handleMonthChange}
             onShare={() => calRef.current?.share()}
           />
         ) : (
@@ -259,13 +403,41 @@ export default function HomeScreen() {
         {entryMode === 'none' && (
           <View style={s.bottom}>
             {!selectedKey ? (
-              <WeeklyHighlights />
+              <>
+                {hlLoading && (
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      marginBottom: moderateVerticalScale(6),
+                    }}
+                  >
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                )}
+                <WeeklyHighlights
+                  title="이번주 하이라이트"
+                  badge="지난주 대비"
+                  rows={hlRows ?? undefined} // 없으면 컴포넌트의 데모 rows 사용
+                />
+              </>
             ) : (
-              <DailyDetailList
-                key={selectedKey}
-                date={selectedKey!}
-                items={records}
-              />
+              <>
+                {detailsLoading && (
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      marginBottom: moderateVerticalScale(6),
+                    }}
+                  >
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                )}
+                <DailyDetailList
+                  key={selectedKey}
+                  date={selectedKey!}
+                  items={records}
+                />
+              </>
             )}
           </View>
         )}
@@ -276,6 +448,22 @@ export default function HomeScreen() {
         <View style={s.loadingOverlay}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={s.loadingText}>지출을 등록하고 있어요…</Text>
+        </View>
+      )}
+
+      {/* 캘린더 상태 로딩 오버레이 (작게) */}
+      {calLoading && (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              justifyContent: 'flex-start',
+              alignItems: 'center',
+              paddingTop: moderateVerticalScale(90),
+            },
+          ]}
+        >
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       )}
 
