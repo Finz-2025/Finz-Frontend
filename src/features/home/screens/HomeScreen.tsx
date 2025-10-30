@@ -33,6 +33,7 @@ import { createExpense } from '@/features/home/api/expense';
 import { fetchCalendarStatus } from '../api/calendar';
 import { fetchDailyDetails } from '../api/details';
 import { fetchWeeklyHighlight, WeeklyHighlightRow } from '../api/highlight';
+import { fetchMonthlySummary } from '../api/summary';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
@@ -181,6 +182,8 @@ export default function HomeScreen() {
   const [hlLoading, setHlLoading] = useState(false);
   const [hlRows, setHlRows] = useState<WeeklyHighlightRow[] | null>(null);
 
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
   // 하이라이트: 첫 마운트 시 1회 조회
   useEffect(() => {
     let cancelled = false;
@@ -193,6 +196,40 @@ export default function HomeScreen() {
         // 실패 시 데모 유지(아무 것도 안 함)
       } finally {
         setHlLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 요약: 첫 마운트 시 1회 조회
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setSummaryLoading(true);
+        const { totalExpense, remainingBudget } = await fetchMonthlySummary({
+          userId: 1,
+        });
+        if (cancelled) return;
+        const now = new Date();
+        const monthKey = `${now.getFullYear()}-${String(
+          now.getMonth() + 1,
+        ).padStart(2, '0')}`;
+        const totalBudget = totalExpense + remainingBudget;
+        setState(prev => ({
+          ...prev,
+          month: {
+            monthKey,
+            totalBudget,
+            totalSpent: totalExpense,
+          },
+        }));
+      } catch {
+        // 실패 시 기존 데모 month 유지
+      } finally {
+        setSummaryLoading(false);
       }
     })();
     return () => {
@@ -291,11 +328,23 @@ export default function HomeScreen() {
       >
         {/* 상단 요약 */}
         {state.month ? (
-          <MonthlySummary
-            month={state.month}
-            keptIcon={thumbsUp}
-            overIcon={thumbsDown}
-          />
+          <>
+            {summaryLoading && (
+              <View
+                style={{
+                  alignItems: 'center',
+                  marginTop: moderateVerticalScale(6),
+                }}
+              >
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            )}
+            <MonthlySummary
+              month={state.month}
+              keptIcon={thumbsUp}
+              overIcon={thumbsDown}
+            />
+          </>
         ) : (
           <MonthlySummaryEmpty />
         )}
