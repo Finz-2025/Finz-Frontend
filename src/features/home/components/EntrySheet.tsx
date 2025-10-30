@@ -315,6 +315,8 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
 
   const handleSubmit = () => {
     if (!isValid) return;
+    const stripHash = (t: string) => t.replace(/^#/, '');
+
     const saved: SavedEntry = {
       type: mode,
       date,
@@ -322,7 +324,7 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
       amount: amt,
       method,
       category,
-      tags,
+      tags: tags.map(stripHash),
       memo: memo?.trim() || '',
     };
     onSaved?.(saved);

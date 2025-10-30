@@ -127,37 +127,15 @@ export default function HomeScreen() {
     }
   };
 
-  const nowHM = () => {
-    const d = new Date();
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  };
-  const krw = (n: number) => n.toLocaleString('ko-KR');
-
-  const methodLabel = (m?: '카드' | '현금' | '계좌이체' | null) => m ?? '';
-  const categoryLabel = (c?: string | null) => c ?? '';
-
-  const formatUserExpenseLine = (e: {
-    title: string;
-    amount: number;
-    method?: any;
-    category?: any;
-  }) => {
-    const parts = [e.title, `${krw(e.amount)}원`];
-    if (methodLabel(e.method)) parts.push(methodLabel(e.method));
-    if (categoryLabel(e.category)) parts.push(categoryLabel(e.category));
-    return parts.join(' ');
-  };
-
   // SavedEntry -> 서버 요청 바디로 매핑
   const mapSavedEntryToExpenseRequest = (entry: SavedEntry) => {
+    const stripHash = (t?: string) => (t ? t.replace(/^#/, '') : '');
     return {
       user_id: 1,
       expense_name: entry.title || '지출',
       amount: entry.amount,
       category: entry.category ?? '기타',
-      expense_tag: entry.tags?.[0] ?? '',
+      expense_tag: stripHash(entry.tags?.[0]),
       memo: entry.memo ?? '',
       payment_method: entry.method ?? '카드',
       expense_date: entry.date,
@@ -167,7 +145,6 @@ export default function HomeScreen() {
   // 기존 handleOnSaved 교체
   const handleOnSaved = async (entry: SavedEntry) => {
     try {
-      // 1) 서버 전송
       const req = mapSavedEntryToExpenseRequest(entry);
       const res = await createExpense(req);
 
@@ -177,21 +154,13 @@ export default function HomeScreen() {
         return;
       }
 
-      // 3) 알림 & 시트 닫기
       setToastOpen(true);
       setEntryMode('none');
 
-      // 4) 자동 메시지로 Coach 이동
-      const autoPost = {
-        text: formatUserExpenseLine(entry),
-        date: entry.date,
-        time: nowHM(),
-        raw: entry,
-      };
-      navigation.navigate('Coach', { autoPost });
+      // 코치탭 이동
+      navigation.navigate('Coach');
     } catch (e: any) {
       console.error('지출 등록 에러:', e?.message || e);
-      // 실패 UX
       setToastOpen(true);
     }
   };

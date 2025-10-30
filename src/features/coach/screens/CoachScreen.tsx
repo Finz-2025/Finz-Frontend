@@ -21,7 +21,7 @@ import {
   moderateVerticalScale,
 } from 'react-native-size-matters';
 import { FONT_FAMILY, FONT_WEIGHT } from '@/theme/typography';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import BottomTabBar from '@/features/commons/components/BottomTabBar';
@@ -31,12 +31,9 @@ const imageIcon = require('~assets/icons/image_icon.png');
 const inactiveSend = require('~assets/icons/send_inactive.png');
 const activeSend = require('~assets/icons/send_active.png');
 
-type CoachRoute = RouteProp<MainStackParamList, 'Coach'>;
-
 export default function CoachScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<MainStackParamList>>();
-  const route = useRoute<CoachRoute>();
 
   const {
     items,
@@ -49,63 +46,33 @@ export default function CoachScreen() {
     prevHit,
     isActionsOpen,
     toggleActions,
-    addMessage,
     loadInitial,
+    currentMode,
+    isModeLoading,
+    exitMode,
+    enterGoalMode,
+    enterExpenseMode,
+    sendToCoach,
+    isSending,
   } = useCoachStore();
 
   useEffect(() => {
-    loadInitial(1); // /api/coach/history/1
+    loadInitial(1);
   }, [loadInitial]);
-
-  // (데모) 코치 자동 응답 생성
-  const makeCoachReply = (raw?: any) => {
-    if (!raw) return '지출을 기록했어요. 이번 주 예산 안에서 잘 관리 중이에요!';
-    const { amount = 0, category } = raw;
-    if (category === 'cafe')
-      return '카페 지출이 늘고 있어요. 이번 주는 1회로 제한해볼까요?';
-    if (amount >= 20000)
-      return '이번 지출은 금액이 조금 커요. 주간 예산을 다시 점검해볼까요?';
-    return '좋아요! 작은 지출도 꾸준히 기록하면 습관이 됩니다.';
-  };
-
-  useEffect(() => {
-    const ap = route.params?.autoPost;
-    if (!ap) return;
-
-    // 1) 사용자가 보낸 메시지 먼저 추가
-    addMessage('user', ap.text, ap.date, ap.time);
-
-    // 2) 코치 자동 응답 예약
-    const replyTimer = setTimeout(() => {
-      const reply = makeCoachReply(ap.raw);
-      const now = new Date();
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-
-      addMessage('coach', reply, ap.date, `${hh}:${mm}`);
-
-      // 3) 응답까지 보낸 '뒤에' 파라미터 초기화
-      navigation.setParams({ autoPost: undefined } as any);
-    }, 250);
-
-    // 4) 언마운트 때만 정리
-    return () => clearTimeout(replyTimer);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.params?.autoPost, addMessage]);
 
   const [input, setInput] = useState('');
   const [showAttach, setShowAttach] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const handleSend = () => {
-    if (!input.trim()) return;
-    console.log('send:', input);
+    const msg = input.trim();
+    if (!msg) return;
+    sendToCoach(1, msg);
     setInput('');
   };
 
+  // 키보드 표시 상태
   const [kbVisible, setKbVisible] = useState(false);
-
   useEffect(() => {
     const showEvt =
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -118,6 +85,29 @@ export default function CoachScreen() {
       h.remove();
     };
   }, []);
+
+  // === 모드 뱃지 컴포넌트 ===
+  const ModeBadge = () => {
+    if (currentMode === 'FREE_CHAT') return null;
+    const label =
+      currentMode === 'GOAL_SETTING' ? '목표 추천 모드' : '지출 상담 모드';
+    const exitLabel =
+      currentMode === 'GOAL_SETTING'
+        ? '목표 추천 모드 종료하기'
+        : '지출 상담 모드 종료하기';
+    return (
+      <View style={s.modeWrap}>
+        <Text style={s.modeText}>{label}</Text>
+        <Pressable
+          style={s.modeExitBtn}
+          onPress={exitMode}
+          disabled={isModeLoading || isSending}
+        >
+          <Text style={s.modeExitText}>{exitLabel}</Text>
+        </Pressable>
+      </View>
+    );
+  };
 
   return (
     <View style={s.view}>
@@ -136,6 +126,9 @@ export default function CoachScreen() {
           currentIndex={hitIndex}
         />
 
+        {/* 현재 모드 표시 + 종료 */}
+        <ModeBadge />
+
         <ChatList
           items={items}
           hits={hits}
@@ -147,14 +140,16 @@ export default function CoachScreen() {
           <QuickActionsBar
             open={isActionsOpen}
             onToggle={() => toggleActions()}
+            // 모드 전환 + AI 응답 선발송
             onPick={t => {
-              setInput(
-                t === 'goal'
-                  ? '나의 소비 패턴을 기반으로 목표를 추천해줘'
-                  : '나의 소비 패턴에 대해 어떻게 생각해?',
-              );
+              if (t === 'goal') {
+                enterGoalMode(1);
+              } else {
+                enterExpenseMode(1);
+              }
             }}
           />
+
           <View style={s.inputRow}>
             <View style={s.iconArea}>
               <Pressable onPress={() => toggleActions(true)}>
@@ -164,22 +159,41 @@ export default function CoachScreen() {
                 <Image source={imageIcon} style={s.iconBtn} />
               </Pressable>
             </View>
+
             <TextInput
               style={s.input}
               value={input}
               onChangeText={setInput}
-              placeholder="메시지 입력"
+              placeholder={
+                currentMode === 'FREE_CHAT'
+                  ? '메시지 입력'
+                  : currentMode === 'GOAL_SETTING'
+                  ? '목표 추천에 대해 물어보세요'
+                  : '지출 상담에 대해 물어보세요'
+              }
               placeholderTextColor={colors.grayShadow}
               onSubmitEditing={handleSend}
+              editable={!isSending && !isModeLoading}
             />
+
             {input.trim() ? (
-              <Pressable onPress={handleSend}>
+              <Pressable
+                onPress={handleSend}
+                disabled={isSending || isModeLoading}
+              >
                 <Image source={activeSend} style={s.sendBtn} />
               </Pressable>
             ) : (
               <Image source={inactiveSend} style={s.sendBtn} />
             )}
           </View>
+
+          {/* 선택: 모드 로딩/전송 상태 간단 표기 */}
+          {(isModeLoading || isSending) && (
+            <Text style={{ color: colors.grayShadow, marginTop: 6 }}>
+              {isModeLoading ? '모드 초기화 중…' : '전송 중…'}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -188,7 +202,6 @@ export default function CoachScreen() {
         onClose={() => setShowAttach(false)}
       />
 
-      {/* 고정 하단바 */}
       {!kbVisible && (
         <BottomTabBar
           active="coach"
@@ -202,10 +215,7 @@ export default function CoachScreen() {
 }
 
 const s = StyleSheet.create({
-  view: {
-    flex: 1,
-    backgroundColor: colors.white,
-  },
+  view: { flex: 1, backgroundColor: colors.white },
   titleArea: {
     paddingTop:
       Platform.OS === 'ios'
@@ -231,6 +241,39 @@ const s = StyleSheet.create({
     borderRadius: moderateScale(10),
     backgroundColor: colors.lightPrimary,
   },
+  modeWrap: {
+    marginHorizontal: moderateScale(13),
+    marginTop: moderateVerticalScale(8),
+    marginBottom: moderateVerticalScale(4),
+    paddingVertical: moderateVerticalScale(6),
+    paddingHorizontal: moderateScale(10),
+    backgroundColor: '#EFE7FF',
+    borderRadius: moderateScale(8),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: moderateScale(8),
+  },
+  modeText: {
+    color: colors.primary,
+    fontFamily: FONT_FAMILY,
+    fontSize: moderateScale(12),
+    fontWeight: FONT_WEIGHT.semibold,
+  },
+  modeExitBtn: {
+    paddingVertical: moderateVerticalScale(5),
+    paddingHorizontal: moderateScale(8),
+    backgroundColor: colors.white,
+    borderRadius: moderateScale(999),
+    borderWidth: 0.5,
+    borderColor: colors.primary,
+  },
+  modeExitText: {
+    color: colors.primary,
+    fontFamily: FONT_FAMILY,
+    fontSize: moderateScale(11),
+    fontWeight: FONT_WEIGHT.medium,
+  },
   inputArea: {
     marginVertical: moderateVerticalScale(10),
     marginHorizontal: moderateScale(13),
@@ -250,10 +293,7 @@ const s = StyleSheet.create({
     gap: moderateScale(5),
     marginRight: moderateScale(10),
   },
-  iconBtn: {
-    width: moderateScale(20),
-    height: moderateVerticalScale(20),
-  },
+  iconBtn: { width: moderateScale(20), height: moderateVerticalScale(20) },
   input: {
     flex: 1,
     color: colors.darkText,
