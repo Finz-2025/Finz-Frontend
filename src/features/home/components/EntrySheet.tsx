@@ -33,10 +33,21 @@ export type EntrySheetRef = {
   tryClose: () => void;
 };
 
+export type SavedEntry = {
+  type: 'expense' | 'income';
+  date: string;
+  title: string;
+  amount: number;
+  method?: 'card' | 'cash' | 'transfer' | null;
+  category?: string | null;
+  tags: string[];
+  memo?: string;
+};
+
 interface Props {
   mode: Mode;
   selectedDate?: string;
-  onSaved?(): void;
+  onSaved?(entry: SavedEntry): void;
   onRequestClose?(dirty: boolean): void;
 }
 
@@ -285,7 +296,17 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
 
   const handleSubmit = () => {
     if (!isValid) return;
-    onSaved?.();
+    const saved: SavedEntry = {
+      type: mode,
+      date,
+      title: title.trim() || (mode === 'expense' ? '지출' : '수입'),
+      amount: amt,
+      method,
+      category,
+      tags,
+      memo: memo?.trim() || '',
+    };
+    onSaved?.(saved);
   };
 
   const translateY = slide.interpolate({

@@ -12,7 +12,10 @@ import MonthlySummary from '../components/MonthlySummary';
 import BottomTabBar, {
   useTabBarHeight,
 } from '@/features/commons/components/BottomTabBar';
-import EntrySheet, { EntrySheetRef } from '../components/EntrySheet';
+import EntrySheet, {
+  EntrySheetRef,
+  SavedEntry,
+} from '../components/EntrySheet';
 import CenterConfirmModal from '@/features/commons/components/modals/CenterConfirmModal';
 import CenterToast from '@/features/commons/components/modals/CenterToast';
 import { useNavigation } from '@react-navigation/native';
@@ -22,6 +25,17 @@ import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
+
+const CATEGORY_KO: Record<string, string> = {
+  food: '식사',
+  cafe: '카페',
+  daily: '생필품',
+  transport: '교통',
+  housing: '주거',
+  saving: '저축',
+  etc: '기타',
+};
+const METHOD_KO = { card: '카드', cash: '현금', transfer: '계좌이체' } as const;
 
 export default function HomeScreen() {
   const navigation =
@@ -123,13 +137,42 @@ export default function HomeScreen() {
     }
   };
 
-  const handleOnSaved = () => {
-    // 저장 성공 → 토스트 → 시트 닫기
+  const nowHM = () => {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  };
+  const krw = (n: number) => n.toLocaleString('ko-KR');
+
+  const methodLabel = (m?: 'card' | 'cash' | 'transfer' | null) =>
+    m ? METHOD_KO[m] : '';
+  const categoryLabel = (c?: string | null) => (c ? CATEGORY_KO[c] ?? c : '');
+
+  const formatUserExpenseLine = (e: {
+    title: string;
+    amount: number;
+    method?: any;
+    category?: any;
+  }) => {
+    const parts = [e.title, `${krw(e.amount)}원`];
+    if (methodLabel(e.method)) parts.push(methodLabel(e.method));
+    if (categoryLabel(e.category)) parts.push(categoryLabel(e.category));
+    return parts.join(' ');
+  };
+
+  const handleOnSaved = (entry: SavedEntry) => {
     setToastOpen(true);
-    setTimeout(() => {
-      setToastOpen(false);
-      setEntryMode('none');
-    }, 1000);
+    setEntryMode('none');
+
+    const autoPost = {
+      text: formatUserExpenseLine(entry),
+      date: entry.date,
+      time: nowHM(),
+      raw: entry,
+    };
+
+    navigation.navigate('Coach', { autoPost });
   };
 
   return (

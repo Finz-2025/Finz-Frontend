@@ -21,7 +21,7 @@ import {
   moderateVerticalScale,
 } from 'react-native-size-matters';
 import { FONT_FAMILY, FONT_WEIGHT } from '@/theme/typography';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import BottomTabBar from '@/features/commons/components/BottomTabBar';
@@ -31,9 +31,12 @@ const imageIcon = require('~assets/icons/image_icon.png');
 const inactiveSend = require('~assets/icons/send_inactive.png');
 const activeSend = require('~assets/icons/send_active.png');
 
+type CoachRoute = RouteProp<MainStackParamList, 'Coach'>;
+
 export default function CoachScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+  const route = useRoute<CoachRoute>();
 
   const {
     items,
@@ -46,7 +49,46 @@ export default function CoachScreen() {
     prevHit,
     isActionsOpen,
     toggleActions,
+    addMessage,
   } = useCoachStore();
+
+  // (데모) 코치 자동 응답 생성
+  const makeCoachReply = (raw?: any) => {
+    if (!raw) return '지출을 기록했어요. 이번 주 예산 안에서 잘 관리 중이에요!';
+    const { amount = 0, category } = raw;
+    if (category === 'cafe')
+      return '카페 지출이 늘고 있어요. 이번 주는 1회로 제한해볼까요?';
+    if (amount >= 20000)
+      return '이번 지출은 금액이 조금 커요. 주간 예산을 다시 점검해볼까요?';
+    return '좋아요! 작은 지출도 꾸준히 기록하면 습관이 됩니다.';
+  };
+
+  useEffect(() => {
+    const ap = route.params?.autoPost;
+    if (!ap) return;
+
+    // 1) 사용자가 보낸 메시지 먼저 추가
+    addMessage('user', ap.text, ap.date, ap.time);
+
+    // 2) 코치 자동 응답 예약
+    const replyTimer = setTimeout(() => {
+      const reply = makeCoachReply(ap.raw);
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+
+      addMessage('coach', reply, ap.date, `${hh}:${mm}`);
+
+      // 3) 응답까지 보낸 '뒤에' 파라미터 초기화
+      navigation.setParams({ autoPost: undefined } as any);
+    }, 250);
+
+    // 4) 언마운트 때만 정리
+    return () => clearTimeout(replyTimer);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.autoPost, addMessage]);
+
   const [input, setInput] = useState('');
   const [showAttach, setShowAttach] = useState(false);
   const listRef = useRef<FlatList>(null);
