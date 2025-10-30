@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCoachStore } from '../state/useCoachStore';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Keyboard,
@@ -47,6 +48,8 @@ export default function CoachScreen() {
     isActionsOpen,
     toggleActions,
     loadInitial,
+    isLoading,
+    isSyncing,
     currentMode,
     isModeLoading,
     exitMode,
@@ -85,6 +88,16 @@ export default function CoachScreen() {
       h.remove();
     };
   }, []);
+
+  // 오버레이 노출 여부/문구
+  const showOverlay = isLoading || isModeLoading || isSending || isSyncing;
+  const overlayText = isLoading
+    ? '대화 불러오는 중…'
+    : isModeLoading
+    ? '모드 초기화 중… 코치가 먼저 답해요'
+    : isSyncing
+    ? '기록 정리 중… 최신 대화로 맞추는 중'
+    : '전송 중… 요청을 처리하고 있어요';
 
   // === 모드 뱃지 컴포넌트 ===
   const ModeBadge = () => {
@@ -140,13 +153,10 @@ export default function CoachScreen() {
           <QuickActionsBar
             open={isActionsOpen}
             onToggle={() => toggleActions()}
-            // 모드 전환 + AI 응답 선발송
             onPick={t => {
-              if (t === 'goal') {
-                enterGoalMode(1);
-              } else {
-                enterExpenseMode(1);
-              }
+              toggleActions(false);
+              if (t === 'goal') enterGoalMode(1);
+              else enterExpenseMode(1);
             }}
           />
 
@@ -187,14 +197,14 @@ export default function CoachScreen() {
               <Image source={inactiveSend} style={s.sendBtn} />
             )}
           </View>
-
-          {/* 선택: 모드 로딩/전송 상태 간단 표기 */}
-          {(isModeLoading || isSending) && (
-            <Text style={{ color: colors.grayShadow, marginTop: 6 }}>
-              {isModeLoading ? '모드 초기화 중…' : '전송 중…'}
-            </Text>
-          )}
         </View>
+
+        {showOverlay && (
+          <View style={s.loadingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={s.loadingText}>{overlayText}</Text>
+          </View>
+        )}
       </View>
 
       <AttachReceiptModal
@@ -236,10 +246,12 @@ const s = StyleSheet.create({
   },
   chatArea: {
     height: Platform.OS === 'ios' ? '78.5%' : '80%',
-    marginHorizontal: moderateScale(20),
+    marginHorizontal: moderateScale(10),
     marginBottom: moderateVerticalScale(11),
     borderRadius: moderateScale(10),
     backgroundColor: colors.lightPrimary,
+    overflow: 'hidden',
+    position: 'relative',
   },
   modeWrap: {
     marginHorizontal: moderateScale(13),
@@ -305,5 +317,20 @@ const s = StyleSheet.create({
     marginLeft: moderateScale(12),
     width: moderateScale(20),
     height: moderateVerticalScale(20),
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: moderateScale(16),
+  },
+  loadingText: {
+    marginTop: moderateVerticalScale(8),
+    color: colors.primary,
+    fontFamily: FONT_FAMILY,
+    fontSize: moderateScale(12),
+    fontWeight: FONT_WEIGHT.semibold,
+    textAlign: 'center',
   },
 });

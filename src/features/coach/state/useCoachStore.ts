@@ -67,6 +67,7 @@ type State = {
   // 로딩/전송
   isLoading: boolean;
   isSending: boolean;
+  isSyncing: boolean;
   error?: string;
 
   // 현재 채팅 모드
@@ -93,6 +94,8 @@ type Actions = {
   // 초기 로드
   loadInitial(userId: number | string): Promise<void>;
 
+  refreshHistory(userId: number | string): Promise<void>;
+
   // === 새로 추가: 모드 제어 ===
   enterGoalMode(userId: number | string): Promise<void>;
   enterExpenseMode(userId: number | string): Promise<void>;
@@ -112,6 +115,7 @@ export const useCoachStore = create<State & Actions>((set, get) => ({
 
   isLoading: false,
   isSending: false,
+  isSyncing: false,
   error: undefined,
 
   currentMode: 'FREE_CHAT',
@@ -168,15 +172,37 @@ export const useCoachStore = create<State & Actions>((set, get) => ({
     }
   },
 
+  // 서버 기록으로 재동기화(응답 받은 뒤 항상 호출)
+  refreshHistory: async userId => {
+    set({ isSyncing: true });
+    try {
+      const list = await getCoachHistory(userId);
+      const sorted = [...list].sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
+      const mapped: ChatItem[] = [];
+      for (const m of sorted) {
+        const { date, time } = splitUtcIsoToLocal(m.createdAt);
+        const sender = m.sender === 'USER' ? 'user' : 'coach';
+        mapped.push(makeDateHeader(date));
+        mapped.push(makeMsg({ sender, text: m.content, date, time }));
+      }
+      set({ items: normalizeAsc(mapped), isSyncing: false });
+    } catch (e: any) {
+      // 동기화 실패해도 기존 화면 유지
+      set({ isSyncing: false, error: e?.message ?? '대화 동기화 실패' });
+    }
+  },
+
   // === 모드 전환: 목표 상담 ===
   enterGoalMode: async userId => {
     if (get().isModeLoading) return;
-    set({ isModeLoading: true, error: undefined });
+    set({ isModeLoading: true, isActionsOpen: false, error: undefined });
     try {
-      const { message, messageType } = await getGoalConsult(userId);
-      const t = nowLocalDateTime(); // 응답 도착 시각(표시용)
-      get().addMessage('coach', message, t.date, t.time);
-      set({ currentMode: messageType, isModeLoading: false }); // 'GOAL_SETTING'
+      const { messageType } = await getGoalConsult(userId);
+      set({ currentMode: messageType, isModeLoading: false });
+      await get().refreshHistory(userId);
     } catch (e: any) {
       const t = nowLocalDateTime();
       get().addMessage(
@@ -192,12 +218,11 @@ export const useCoachStore = create<State & Actions>((set, get) => ({
   // === 모드 전환: 지출 상담 ===
   enterExpenseMode: async userId => {
     if (get().isModeLoading) return;
-    set({ isModeLoading: true, error: undefined });
+    set({ isModeLoading: true, isActionsOpen: false, error: undefined });
     try {
-      const { message, messageType } = await getExpenseConsult(userId);
-      const t = nowLocalDateTime();
-      get().addMessage('coach', message, t.date, t.time);
-      set({ currentMode: messageType, isModeLoading: false }); // 'EXPENSE_CONSULT'
+      const { messageType } = await getExpenseConsult(userId);
+      set({ currentMode: messageType, isModeLoading: false });
+      await get().refreshHistory(userId);
     } catch (e: any) {
       const t = nowLocalDateTime();
       get().addMessage(
@@ -232,14 +257,9 @@ export const useCoachStore = create<State & Actions>((set, get) => ({
         : 'FREE_CHAT';
 
     try {
-      const res = await postCoachMessage(userId, { message, messageType });
-      const t2 = nowLocalDateTime();
-      get().addMessage(
-        'coach',
-        res.message ?? '코치의 답변이 도착했어요.',
-        t2.date,
-        t2.time,
-      );
+      await postCoachMessage(userId, { message, messageType });
+      // 서버 기준 정합 반영(코치 답변 포함)
+      await get().refreshHistory(userId);
       set({ isSending: false });
     } catch (e: any) {
       const tErr = nowLocalDateTime();
