@@ -22,20 +22,10 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
+import { createExpense } from '@/services/expense';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
-
-const CATEGORY_KO: Record<string, string> = {
-  food: '식사',
-  cafe: '카페',
-  daily: '생필품',
-  transport: '교통',
-  housing: '주거',
-  saving: '저축',
-  etc: '기타',
-};
-const METHOD_KO = { card: '카드', cash: '현금', transfer: '계좌이체' } as const;
 
 export default function HomeScreen() {
   const navigation =
@@ -145,9 +135,8 @@ export default function HomeScreen() {
   };
   const krw = (n: number) => n.toLocaleString('ko-KR');
 
-  const methodLabel = (m?: 'card' | 'cash' | 'transfer' | null) =>
-    m ? METHOD_KO[m] : '';
-  const categoryLabel = (c?: string | null) => (c ? CATEGORY_KO[c] ?? c : '');
+  const methodLabel = (m?: '카드' | '현금' | '계좌이체' | null) => m ?? '';
+  const categoryLabel = (c?: string | null) => c ?? '';
 
   const formatUserExpenseLine = (e: {
     title: string;
@@ -161,18 +150,50 @@ export default function HomeScreen() {
     return parts.join(' ');
   };
 
-  const handleOnSaved = (entry: SavedEntry) => {
-    setToastOpen(true);
-    setEntryMode('none');
+  // SavedEntry -> 서버 요청 바디로 매핑
+  const mapSavedEntryToExpenseRequest = (entry: SavedEntry) => {
+    return {
+      user_id: 1,
+      expense_name: entry.title || '지출',
+      amount: entry.amount,
+      category: entry.category ?? '기타',
+      expense_tag: entry.tags?.[0] ?? '',
+      memo: entry.memo ?? '',
+      payment_method: entry.method ?? '카드',
+      expense_date: entry.date,
+    } as const;
+  };
 
-    const autoPost = {
-      text: formatUserExpenseLine(entry),
-      date: entry.date,
-      time: nowHM(),
-      raw: entry,
-    };
+  // 기존 handleOnSaved 교체
+  const handleOnSaved = async (entry: SavedEntry) => {
+    try {
+      // 1) 서버 전송
+      const req = mapSavedEntryToExpenseRequest(entry);
+      const res = await createExpense(req);
 
-    navigation.navigate('Coach', { autoPost });
+      if (!res.success) {
+        console.warn('지출 등록 실패:', res.message);
+        setToastOpen(true);
+        return;
+      }
+
+      // 3) 알림 & 시트 닫기
+      setToastOpen(true);
+      setEntryMode('none');
+
+      // 4) 자동 메시지로 Coach 이동
+      const autoPost = {
+        text: formatUserExpenseLine(entry),
+        date: entry.date,
+        time: nowHM(),
+        raw: entry,
+      };
+      navigation.navigate('Coach', { autoPost });
+    } catch (e: any) {
+      console.error('지출 등록 에러:', e?.message || e);
+      // 실패 UX
+      setToastOpen(true);
+    }
   };
 
   return (

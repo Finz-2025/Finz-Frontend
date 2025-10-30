@@ -33,13 +33,34 @@ export type EntrySheetRef = {
   tryClose: () => void;
 };
 
+export type CategoryValue =
+  | '음식'
+  | '카페'
+  | '쇼핑'
+  | '교통'
+  | '주거'
+  | '문화생활'
+  | '기타';
+
+export type MethodValue = '카드' | '현금' | '계좌이체';
+
+const CATEGORY_OPTIONS = [
+  '음식',
+  '카페',
+  '쇼핑',
+  '교통',
+  '주거',
+  '문화생활',
+] as const;
+const METHOD_OPTIONS = ['카드', '현금', '계좌이체'] as const;
+
 export type SavedEntry = {
   type: 'expense' | 'income';
   date: string;
   title: string;
   amount: number;
-  method?: 'card' | 'cash' | 'transfer' | null;
-  category?: string | null;
+  method?: MethodValue | null; // '카드' | '현금' | '계좌이체'
+  category?: CategoryValue | null; // '음식' | '카페' | '쇼핑' | '교통' | '주거' | '문화생활' | '기타'
   tags: string[];
   memo?: string;
 };
@@ -54,21 +75,21 @@ interface Props {
 // 아이콘 PNG
 const ICONS = {
   categories: {
-    food: require('~assets/icons/cat_food.png'),
-    cafe: require('~assets/icons/cat_cafe.png'),
-    daily: require('~assets/icons/cat_daily.png'),
-    transport: require('~assets/icons/cat_transport.png'),
-    housing: require('~assets/icons/cat_housing.png'),
-    saving: require('~assets/icons/cat_saving.png'),
-  },
+    음식: require('~assets/icons/cat_food.png'),
+    카페: require('~assets/icons/cat_cafe.png'),
+    쇼핑: require('~assets/icons/cat_daily.png'), // ← 기존 daily 재사용
+    교통: require('~assets/icons/cat_transport.png'),
+    주거: require('~assets/icons/cat_housing.png'),
+    문화생활: require('~assets/icons/cat_saving.png'), // ← 임시 매핑
+  } as const,
   categoriesSelected: {
-    food: require('~assets/icons/cat_food_sel.png'),
-    cafe: require('~assets/icons/cat_cafe_sel.png'),
-    daily: require('~assets/icons/cat_daily_sel.png'),
-    transport: require('~assets/icons/cat_transport_sel.png'),
-    housing: require('~assets/icons/cat_housing_sel.png'),
-    saving: require('~assets/icons/cat_saving_sel.png'),
-  },
+    음식: require('~assets/icons/cat_food_sel.png'),
+    카페: require('~assets/icons/cat_cafe_sel.png'),
+    쇼핑: require('~assets/icons/cat_daily_sel.png'),
+    교통: require('~assets/icons/cat_transport_sel.png'),
+    주거: require('~assets/icons/cat_housing_sel.png'),
+    문화생활: require('~assets/icons/cat_saving_sel.png'),
+  } as const,
   submit: {
     on: require('~assets/icons/btn_submit_on.png'),
     off: require('~assets/icons/btn_submit_off.png'),
@@ -125,10 +146,8 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
   );
 
   // 카테고리/수단
-  const [category, setCategory] = useState<string | null>(null);
-  const [method, setMethod] = useState<'card' | 'cash' | 'transfer' | null>(
-    null,
-  );
+  const [category, setCategory] = useState<CategoryValue | null>(null);
+  const [method, setMethod] = useState<MethodValue | null>(null);
 
   // 태그
   const [customTags, setCustomTags] = useState<string[]>([]);
@@ -264,10 +283,10 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
   const onCancelDate = () => setShowPicker(false);
 
   const onAmountChange = (text: string) => setAmountRaw(onlyDigits(text));
-  const toggleCategory = (key: string) =>
-    setCategory(prev => (prev === key ? null : key));
-  const toggleMethod = (key: 'card' | 'cash' | 'transfer') =>
-    setMethod(prev => (prev === key ? null : key));
+  const toggleCategory = (value: CategoryValue) =>
+    setCategory(prev => (prev === value ? null : value));
+  const toggleMethod = (value: MethodValue) =>
+    setMethod(prev => (prev === value ? null : value));
   const toggleTag = (t: string) =>
     setTags(prev =>
       prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t],
@@ -422,7 +441,7 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
             {/* 라벨 라인 + 기타 텍스트 버튼 */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionLabel}>카테고리</Text>
-              <Pressable onPress={() => toggleCategory('etc')}>
+              <Pressable onPress={() => toggleCategory('기타')}>
                 <Text
                   style={[
                     styles.sectionLabel,
@@ -432,7 +451,7 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
                       paddingVertical: 2,
                       borderRadius: 999,
                     },
-                    category === 'etc' && {
+                    category === '기타' && {
                       borderWidth: 1,
                       borderColor: colors.primary,
                     },
@@ -444,25 +463,15 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
             </View>
 
             <View style={styles.catRow}>
-              {(
-                [
-                  ['food', '식사'],
-                  ['cafe', '카페'],
-                  ['daily', '생필품'],
-                  ['transport', '교통'],
-                  ['housing', '주거'],
-                  ['saving', '저축'],
-                ] as const
-              ).map(([key]) => {
-                const active = category === key;
-
+              {CATEGORY_OPTIONS.map(v => {
+                const active = category === v;
                 return (
-                  <Pressable key={key} onPress={() => toggleCategory(key)}>
+                  <Pressable key={v} onPress={() => toggleCategory(v)}>
                     <Image
                       source={
                         active
-                          ? ICONS.categoriesSelected[key]
-                          : ICONS.categories[key]
+                          ? ICONS.categoriesSelected[v]
+                          : ICONS.categories[v]
                       }
                       style={styles.catImg}
                     />
@@ -558,21 +567,15 @@ const EntrySheet = forwardRef<EntrySheetRef, Props>(function EntrySheet(
               결제 수단
             </Text>
             <View style={styles.payRow}>
-              {(
-                [
-                  ['card', '카드'],
-                  ['cash', '현금'],
-                  ['transfer', '계좌이체'],
-                ] as const
-              ).map(([key, label]) => {
-                const active = method === key;
+              {METHOD_OPTIONS.map(v => {
+                const active = method === v;
                 return (
                   <Pressable
-                    key={key}
+                    key={v}
                     style={[styles.payBtn, active && styles.payBtnActive]}
-                    onPress={() => toggleMethod(key as any)}
+                    onPress={() => toggleMethod(v)}
                   >
-                    <Text style={styles.payTxt}>{label}</Text>
+                    <Text style={styles.payTxt}>{v}</Text>
                   </Pressable>
                 );
               })}
