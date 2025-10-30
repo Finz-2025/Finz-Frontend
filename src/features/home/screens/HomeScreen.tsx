@@ -32,6 +32,7 @@ import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
 import { createExpense } from '@/features/home/api/expense';
 import { fetchCalendarStatus } from '../api/calendar';
 import { fetchDailyDetails } from '../api/details';
+import { fetchWeeklyHighlight, WeeklyHighlightRow } from '../api/highlight';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
@@ -176,6 +177,28 @@ export default function HomeScreen() {
     const flat = Object.values(state.dailyRecords).flat();
     return flat.filter(r => norm(r.date) === selectedKey);
   }, [selectedKey, state.dailyRecords]);
+
+  const [hlLoading, setHlLoading] = useState(false);
+  const [hlRows, setHlRows] = useState<WeeklyHighlightRow[] | null>(null);
+
+  // 하이라이트: 첫 마운트 시 1회 조회
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setHlLoading(true);
+        const rows = await fetchWeeklyHighlight({ userId: 1 });
+        if (!cancelled) setHlRows(rows);
+      } catch {
+        // 실패 시 데모 유지(아무 것도 안 함)
+      } finally {
+        setHlLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 하단바 높이만큼만 바닥 여백을 주어 겹치지 않게
   const TAB_H = useTabBarHeight();
@@ -331,7 +354,23 @@ export default function HomeScreen() {
         {entryMode === 'none' && (
           <View style={s.bottom}>
             {!selectedKey ? (
-              <WeeklyHighlights />
+              <>
+                {hlLoading && (
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      marginBottom: moderateVerticalScale(6),
+                    }}
+                  >
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                )}
+                <WeeklyHighlights
+                  title="이번주 하이라이트"
+                  badge="지난주 대비"
+                  rows={hlRows ?? undefined} // 없으면 컴포넌트의 데모 rows 사용
+                />
+              </>
             ) : (
               <>
                 {detailsLoading && (
