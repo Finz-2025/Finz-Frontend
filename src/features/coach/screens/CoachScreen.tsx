@@ -147,7 +147,7 @@ export default function CoachScreen() {
           active="coach"
           onPressCoach={() => navigation.navigate('Coach')}
           onPressHome={() => navigation.navigate('Home')}
-          onPressGoals={() => {}}
+          onPressGoals={() => navigation.navigate('Goals')}
         />
       )}
     </View>

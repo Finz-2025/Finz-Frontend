@@ -144,7 +144,7 @@ export default function HomeScreen() {
               Platform.OS === 'ios'
                 ? moderateVerticalScale(18)
                 : moderateVerticalScale(8),
-            paddingBottom: TAB_H + moderateVerticalScale(12),
+            paddingBottom: TAB_H,
           },
         ]}
       >
@@ -229,7 +229,7 @@ export default function HomeScreen() {
         active="home"
         onPressCoach={() => navigation.navigate('Coach')}
         onPressHome={() => navigation.navigate('Home')}
-        onPressGoals={() => {}}
+        onPressGoals={() => navigation.navigate('Goals')}
       />
     </View>
   );
