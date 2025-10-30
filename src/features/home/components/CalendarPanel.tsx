@@ -81,6 +81,7 @@ interface Props {
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
   onShare?: () => void;
+  onMonthChange?: (year: number, month: number) => void;
 }
 
 const addMonths = (base: Date, delta: number) =>
@@ -90,7 +91,7 @@ const ymStr = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 
 function CalendarPanelInner(
-  { monthKey, dailyStatus, selectedDate, onSelectDate }: Props,
+  { monthKey, dailyStatus, selectedDate, onSelectDate, onMonthChange }: Props,
   ref: React.Ref<CalendarPanelRef>,
 ) {
   const shotRef = useRef<ViewShot>(null);
@@ -101,6 +102,12 @@ function CalendarPanelInner(
     [monthKey],
   );
   const [visibleMonth, setVisibleMonth] = useState<Date>(initial);
+
+  // 최초 마운트/초기 monthKey 반영 시 콜백 1회 알려주기
+  React.useEffect(() => {
+    onMonthChange?.(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 실제 렌더 너비 측정 → calendarWidth 전달
   const [calWidth, setCalWidth] = useState<number>(0);
@@ -142,7 +149,11 @@ function CalendarPanelInner(
   };
 
   const handleArrow = (dir: -1 | 1) => {
-    setVisibleMonth(prev => addMonths(prev, dir));
+    setVisibleMonth(prev => {
+      const next = addMonths(prev, dir);
+      onMonthChange?.(next.getFullYear(), next.getMonth() + 1);
+      return next;
+    });
   };
 
   return (
@@ -193,7 +204,9 @@ function CalendarPanelInner(
             dayComponent={dayComponent as any}
             hideArrows
             onMonthChange={m => {
-              setVisibleMonth(new Date(m.year, m.month - 1, 1));
+              const next = new Date(m.year, m.month - 1, 1);
+              setVisibleMonth(next);
+              onMonthChange?.(next.getFullYear(), next.getMonth() + 1);
             }}
           />
         )}

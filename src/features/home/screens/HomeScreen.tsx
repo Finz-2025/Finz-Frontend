@@ -30,6 +30,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/app/navigation/MainNavigator';
 import WeeklyHighlights from '@/features/commons/components/WeeklyHighlights';
 import { createExpense } from '@/features/home/api/expense';
+import { fetchCalendarStatus } from '../api/calendar';
 
 const thumbsUp = require('~assets/icons/progress_good.png');
 const thumbsDown = require('~assets/icons/progress_bad.png');
@@ -41,7 +42,7 @@ export default function HomeScreen() {
   // 지출 등록 로딩 상태
   const [isSaving, setIsSaving] = useState(false);
 
-  const [state] = useState<HomeState>(() => ({
+  const [state, setState] = useState<HomeState>(() => ({
     month: { monthKey: '2025-10', totalBudget: 400000, totalSpent: 152000 },
     dailyRecords: {
       '2025-10-04': [
@@ -77,12 +78,39 @@ export default function HomeScreen() {
         },
       ],
     },
-    dailyStatus: {
-      '2025-10-01': 'kept',
-      '2025-10-02': 'over',
-      '2025-10-03': 'noSpend',
-    },
+    dailyStatus: {},
   }));
+  const [calLoading, setCalLoading] = useState(false);
+  const currentYMRef = useRef<{ year: number; month: number } | null>(null);
+
+  const loadCalendar = useCallback(async (year: number, month: number) => {
+    try {
+      setCalLoading(true);
+      const map = await fetchCalendarStatus({ year, month });
+      setState(prev => ({
+        ...prev,
+        dailyStatus: map,
+      }));
+    } catch (e) {
+      console.warn('캘린더 상태 조회 실패:', e);
+      // 실패 시 이전 상태 유지
+    } finally {
+      setCalLoading(false);
+    }
+  }, []);
+
+  // CalendarPanel에서 전달해주는 월 변경 콜백
+  const handleMonthChange = useCallback(
+    (year: number, month: number) => {
+      const last = currentYMRef.current;
+      // 같은 달 중복 호출 방지
+      if (!last || last.year !== year || last.month !== month) {
+        currentYMRef.current = { year, month };
+        loadCalendar(year, month);
+      }
+    },
+    [loadCalendar],
+  );
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [entryMode, setEntryMode] = useState<'none' | 'expense' | 'income'>(
@@ -225,6 +253,7 @@ export default function HomeScreen() {
             dailyStatus={state.dailyStatus}
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
+            onMonthChange={handleMonthChange}
             onShare={() => calRef.current?.share()}
           />
         ) : (
@@ -276,6 +305,22 @@ export default function HomeScreen() {
         <View style={s.loadingOverlay}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={s.loadingText}>지출을 등록하고 있어요…</Text>
+        </View>
+      )}
+
+      {/* 캘린더 상태 로딩 오버레이 (작게) */}
+      {calLoading && (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              justifyContent: 'flex-start',
+              alignItems: 'center',
+              paddingTop: moderateVerticalScale(90),
+            },
+          ]}
+        >
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       )}
 
